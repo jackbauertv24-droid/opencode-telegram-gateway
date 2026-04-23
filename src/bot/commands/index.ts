@@ -8,6 +8,7 @@ import { handleStatus } from "./status.js";
 import { handleResend } from "./resend.js";
 import { handleApprove } from "./approve.js";
 import { handleCancel } from "./cancel.js";
+import { handleCompact } from "./compact.js";
 import { handleHelp } from "./help.js";
 
 export function registerCommands(bot: Bot): void {
@@ -20,5 +21,6 @@ export function registerCommands(bot: Bot): void {
   bot.command("resend", handleResend);
   bot.command("approve", handleApprove);
   bot.command("cancel", handleCancel);
+  bot.command("compact", handleCompact);
   bot.command("help", handleHelp);
 }

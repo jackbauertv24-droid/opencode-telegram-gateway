@@ -125,3 +125,11 @@ export async function replyPermission(
   );
   return true;
 }
+
+export async function compactSession(sessionId: string): Promise<boolean> {
+  await opencodeFetch<boolean>(`/session/${sessionId}/summarize`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return true;
+}
