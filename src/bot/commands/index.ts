@@ -21,12 +21,4 @@ export function registerCommands(bot: Bot): void {
   bot.command("approve", handleApprove);
   bot.command("cancel", handleCancel);
   bot.command("help", handleHelp);
-
-  bot.on("message:text", async (ctx) => {
-    if (ctx.message.text?.startsWith("/")) return;
-    await ctx.reply(
-      "Use one of the commands to interact with OpenCode.\n\n" +
-        "Type /help to see available commands."
-    );
-  });
 }
