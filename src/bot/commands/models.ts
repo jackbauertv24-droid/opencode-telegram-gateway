@@ -3,7 +3,7 @@ import { isUserApproved, getUserModel, setUserModel, clearUserModel } from "../.
 import { getAvailableModels } from "../../opencode/client.js";
 import { logger } from "../../logger.js";
 
-export async function handleModel(ctx: Context): Promise<void> {
+export async function handleModels(ctx: Context): Promise<void> {
   const userId = ctx.from?.id?.toString();
 
   if (!userId || !isUserApproved(userId)) {
@@ -26,11 +26,11 @@ export async function handleModel(ctx: Context): Promise<void> {
     for (const model of models) {
       const isCurrent = current && current.providerId === model.providerId && current.modelId === model.modelId;
       const label = isCurrent ? `✅ ${model.name}` : model.name;
-      keyboard.text(label, `model:${model.providerId}:${model.modelId}`).row();
+      keyboard.text(label, `models:${model.providerId}:${model.modelId}`).row();
     }
 
     if (current) {
-      keyboard.text("🔄 Reset to default", "model:reset:reset");
+      keyboard.text("🔄 Reset to default", "models:reset:reset");
     }
 
     const currentText = current
@@ -50,7 +50,7 @@ export async function handleModel(ctx: Context): Promise<void> {
   }
 }
 
-export async function handleModelCallback(ctx: Context): Promise<void> {
+export async function handleModelsCallback(ctx: Context): Promise<void> {
   const callbackQuery = ctx.callbackQuery;
   if (!callbackQuery?.data) return;
 

@@ -134,25 +134,32 @@ export interface AvailableModel {
   name: string;
 }
 
-export async function getAvailableModels(): Promise<AvailableModel[]> {
-  const config = await opencodeFetch<Record<string, unknown>>("/global/config");
-  const models: AvailableModel[] = [];
-  
-  const providers = config.provider as Record<string, {
-    models: Record<string, { name: string }>;
+interface ProviderResponse {
+  all: Array<{
+    id: string;
+    models: Record<string, { name?: string; id?: string }>;
   }>;
+  connected: string[];
+}
+
+export async function getAvailableModels(): Promise<AvailableModel[]> {
+  const data = await opencodeFetch<ProviderResponse>("/provider");
+  const models: AvailableModel[] = [];
+  const connectedSet = new Set(data.connected || []);
   
-  for (const [providerId, provider] of Object.entries(providers || {})) {
+  for (const provider of data.all || []) {
+    if (!connectedSet.has(provider.id)) continue;
+    
     for (const [modelId, model] of Object.entries(provider.models || {})) {
       models.push({
-        providerId,
+        providerId: provider.id,
         modelId,
-        name: (model as { name: string }).name || modelId,
+        name: model.name || model.id || modelId,
       });
     }
   }
   
-  return models;
+  return models.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getPermission(
