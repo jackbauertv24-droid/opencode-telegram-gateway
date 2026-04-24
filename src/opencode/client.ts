@@ -135,31 +135,26 @@ export interface AvailableModel {
 }
 
 interface ProviderResponse {
-  all: Array<{
-    id: string;
-    models: Record<string, { name?: string; id?: string }>;
-  }>;
   connected: string[];
+  default: Record<string, string>;
 }
 
 export async function getAvailableModels(): Promise<AvailableModel[]> {
   const data = await opencodeFetch<ProviderResponse>("/provider");
   const models: AvailableModel[] = [];
-  const connectedSet = new Set(data.connected || []);
   
-  for (const provider of data.all || []) {
-    if (!connectedSet.has(provider.id)) continue;
-    
-    for (const [modelId, model] of Object.entries(provider.models || {})) {
+  for (const providerId of data.connected || []) {
+    const defaultModel = data.default?.[providerId];
+    if (defaultModel) {
       models.push({
-        providerId: provider.id,
-        modelId,
-        name: model.name || model.id || modelId,
+        providerId,
+        modelId: defaultModel,
+        name: `${providerId}: ${defaultModel}`,
       });
     }
   }
   
-  return models.sort((a, b) => a.name.localeCompare(b.name));
+  return models.sort((a, b) => a.providerId.localeCompare(b.providerId));
 }
 
 export async function getPermission(
