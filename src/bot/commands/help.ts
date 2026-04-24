@@ -23,7 +23,7 @@ export async function handleHelp(ctx: Context): Promise<void> {
       `• Messages continue the last used session\n` +
       `• Long responses are split into chunks\n` +
       `• Use /resend to get full response as file\n` +
-      `• Permissions require approval unless auto-approve is ON`,
+      `• Permissions use inline buttons - just tap to approve/deny`,
     { parse_mode: "Markdown" }
   );
 }

@@ -1,51 +1,61 @@
-import { Context } from "grammy";
+import { Context, InlineKeyboard } from "grammy";
 import { isUserApproved, getAutoApprove } from "../../store/users.js";
 import {
   createPendingPermission,
-  getPendingPermissionsForUser,
   updatePermissionStatus,
 } from "../../store/permissions.js";
 import { replyPermission } from "../../opencode/client.js";
 import { logger } from "../../logger.js";
 
-export async function handlePermissionReply(ctx: Context): Promise<void> {
-  const userId = ctx.from?.id?.toString();
-  const text = ctx.message?.text?.toLowerCase();
+export async function handlePermissionCallback(ctx: Context): Promise<void> {
+  const callbackQuery = ctx.callbackQuery;
+  if (!callbackQuery?.data) return;
 
-  if (!userId || !isUserApproved(userId)) return;
+  const userId = callbackQuery.from.id.toString();
+  if (!isUserApproved(userId)) {
+    await ctx.answerCallbackQuery("Not authorized");
+    return;
+  }
 
-  const pending = getPendingPermissionsForUser(userId);
-  if (pending.length === 0) return;
-
-  const latestPermission = pending[0];
-
-  const approved = text === "yes" || text === "y";
+  const [action, pendingId, sessionId, permissionId] = callbackQuery.data.split(":");
+  
+  if (action !== "approve" && action !== "deny" && action !== "always") return;
 
   try {
     await replyPermission(
-      latestPermission.opencode_session_id,
-      latestPermission.opencode_permission_id,
-      approved ? "once" : "reject"
+      sessionId,
+      permissionId,
+      action as "once" | "always" | "reject"
     );
 
     updatePermissionStatus(
-      latestPermission.id,
-      approved ? "approved" : "denied"
+      pendingId,
+      action === "deny" ? "denied" : "approved"
     );
 
-    await ctx.reply(approved ? "✅ Approved" : "❌ Denied");
+    const statusText = action === "deny" ? "❌ Denied" 
+      : action === "always" ? "✅ Always approved" 
+      : "✅ Approved";
+
+    await ctx.answerCallbackQuery(statusText);
+
+    if (callbackQuery.message) {
+      await ctx.api.editMessageText(
+        callbackQuery.message.chat.id,
+        callbackQuery.message.message_id,
+        `⚠️ *Permission Request*\n\n` +
+          `Status: ${statusText}`,
+        { parse_mode: "Markdown" }
+      );
+    }
 
     logger.info(
-      {
-        telegramId: userId,
-        permissionId: latestPermission.id,
-        approved,
-      },
-      "Permission replied"
+      { telegramId: userId, permissionId, action },
+      "Permission replied via inline keyboard"
     );
   } catch (err) {
-    logger.error({ err }, "Failed to send permission reply");
-    await ctx.reply("Failed to process permission reply.");
+    logger.error({ err }, "Failed to process permission callback");
+    await ctx.answerCallbackQuery("Failed to process");
   }
 }
 
@@ -80,15 +90,23 @@ export async function promptPermission(
     }
   }
 
+  const keyboard = new InlineKeyboard()
+    .text("✅ Approve", `approve:${pending.id}:${sessionId}:${permissionId}`)
+    .text("❌ Deny", `deny:${pending.id}:${sessionId}:${permissionId}`)
+    .row()
+    .text("✅ Always Approve", `always:${pending.id}:${sessionId}:${permissionId}`);
+
   const message = await bot?.api.sendMessage(
     chatId,
     `⚠️ *Permission Request*\n\n` +
       `Action: \`${actionType}\`\n` +
       (actionDetail
         ? `Detail: \`\`\`\n${actionDetail.slice(0, 500)}\n\`\`\`\n`
-        : "") +
-      `\nReply YES to approve, NO to deny.`,
-    { parse_mode: "Markdown" }
+        : ""),
+    { 
+      parse_mode: "Markdown",
+      reply_markup: keyboard 
+    }
   );
 
   if (message) {

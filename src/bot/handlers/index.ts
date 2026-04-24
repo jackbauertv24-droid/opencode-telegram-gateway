@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { handleMessage } from "./message.js";
-import { handlePermissionReply } from "./permission.js";
+import { handlePermissionCallback } from "./permission.js";
 
 export function registerHandlers(bot: Bot): void {
   bot.on("message:text", async (ctx) => {
@@ -14,6 +14,7 @@ export function registerHandlers(bot: Bot): void {
     }
   });
 
-  bot.hears(["yes", "Yes", "YES", "y", "Y"], handlePermissionReply);
-  bot.hears(["no", "No", "NO", "n", "N"], handlePermissionReply);
+  bot.callbackQuery(/^approve:/, handlePermissionCallback);
+  bot.callbackQuery(/^deny:/, handlePermissionCallback);
+  bot.callbackQuery(/^always:/, handlePermissionCallback);
 }
