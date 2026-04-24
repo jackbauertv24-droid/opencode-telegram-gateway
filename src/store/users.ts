@@ -54,3 +54,23 @@ export function setAutoApprove(telegramId: string, enabled: boolean): void {
     "UPDATE approved_users SET auto_approve = ? WHERE telegram_id = ?"
   ).run(enabled ? 1 : 0, telegramId);
 }
+
+export function getUserModel(telegramId: string): { providerId: string; modelId: string } | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT provider_id, model_id FROM user_model_preferences WHERE telegram_id = ?")
+    .get(telegramId) as { provider_id: string; model_id: string } | undefined;
+  return row ? { providerId: row.provider_id, modelId: row.model_id } : null;
+}
+
+export function setUserModel(telegramId: string, providerId: string, modelId: string): void {
+  const db = getDb();
+  db.prepare(
+    "INSERT OR REPLACE INTO user_model_preferences (telegram_id, provider_id, model_id) VALUES (?, ?, ?)"
+  ).run(telegramId, providerId, modelId);
+}
+
+export function clearUserModel(telegramId: string): void {
+  const db = getDb();
+  db.prepare("DELETE FROM user_model_preferences WHERE telegram_id = ?").run(telegramId);
+}

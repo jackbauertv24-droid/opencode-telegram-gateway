@@ -15,6 +15,7 @@ export async function handleHelp(ctx: Context): Promise<void> {
       `/delete <id> - Delete a session\n` +
       `/status - Show current session info\n` +
       `/compact - Compact/summarize session\n` +
+      `/model - Switch AI model\n` +
       `/resend - Get last response as .txt\n` +
       `/approve on/off - Toggle auto-approve\n` +
       `/cancel - Cancel current operation\n` +

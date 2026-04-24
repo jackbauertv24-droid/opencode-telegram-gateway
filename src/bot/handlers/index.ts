@@ -1,6 +1,7 @@
 import { Bot } from "grammy";
 import { handleMessage } from "./message.js";
 import { handlePermissionCallback } from "./permission.js";
+import { handleModelCallback } from "../commands/model.js";
 
 export function registerHandlers(bot: Bot): void {
   bot.on("message:text", async (ctx) => {
@@ -17,4 +18,5 @@ export function registerHandlers(bot: Bot): void {
   bot.callbackQuery(/^approve:/, handlePermissionCallback);
   bot.callbackQuery(/^deny:/, handlePermissionCallback);
   bot.callbackQuery(/^always:/, handlePermissionCallback);
+  bot.callbackQuery(/^model:/, handleModelCallback);
 }

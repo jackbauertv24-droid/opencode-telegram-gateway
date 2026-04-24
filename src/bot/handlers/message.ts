@@ -1,5 +1,5 @@
 import { Context } from "grammy";
-import { isUserApproved } from "../../store/users.js";
+import { isUserApproved, getUserModel } from "../../store/users.js";
 import {
   getActiveSession,
   getLastUsedSession,
@@ -64,7 +64,13 @@ export async function handleMessage(ctx: Context): Promise<void> {
   processingUsers.add(userId);
 
   try {
-    await opencode.sendAsyncMessage(session.opencode_session_id, text);
+    const userModel = getUserModel(userId);
+
+    await opencode.sendAsyncMessage(
+      session.opencode_session_id,
+      text,
+      userModel || undefined
+    );
 
     touchSession(session.opencode_session_id);
 

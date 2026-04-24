@@ -67,6 +67,13 @@ function migrate(db: Database.Database): void {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS user_model_preferences (
+      telegram_id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_sessions_telegram ON user_sessions(telegram_id);
     CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(telegram_id, is_active);
     CREATE INDEX IF NOT EXISTS idx_pending_permissions_telegram ON pending_permissions(telegram_id, status);

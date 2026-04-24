@@ -104,21 +104,55 @@ export async function sendSimpleMessage(
 
 export async function sendAsyncMessage(
   sessionId: string,
-  text: string
+  text: string,
+  model?: { providerId: string; modelId: string }
 ): Promise<void> {
   const url = `${OPENCODE_URL}/session/${sessionId}/prompt_async`;
+  const body: Record<string, unknown> = { parts: [{ type: "text", text }] };
+  
+  if (model) {
+    body.model = { providerID: model.providerId, modelID: model.modelId };
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ parts: [{ type: "text", text }] }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`OpenCode API error: ${response.status} ${text}`);
   }
+}
+
+export interface AvailableModel {
+  providerId: string;
+  modelId: string;
+  name: string;
+}
+
+export async function getAvailableModels(): Promise<AvailableModel[]> {
+  const config = await opencodeFetch<Record<string, unknown>>("/global/config");
+  const models: AvailableModel[] = [];
+  
+  const providers = config.provider as Record<string, {
+    models: Record<string, { name: string }>;
+  }>;
+  
+  for (const [providerId, provider] of Object.entries(providers || {})) {
+    for (const [modelId, model] of Object.entries(provider.models || {})) {
+      models.push({
+        providerId,
+        modelId,
+        name: (model as { name: string }).name || modelId,
+      });
+    }
+  }
+  
+  return models;
 }
 
 export async function getPermission(
