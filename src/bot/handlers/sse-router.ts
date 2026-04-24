@@ -16,25 +16,30 @@ export function getChatId(telegramId: string): number | undefined {
 }
 
 export function setupSSERouting(): void {
-  sseSubscriber.on("permission.updated", handlePermissionEvent);
+  sseSubscriber.on("permission.asked", handlePermissionEvent);
   sseSubscriber.on("*", handleWildcardEvent);
 }
 
 async function handlePermissionEvent(event: SSEEvent): Promise<void> {
   logger.info({ event }, "Permission event received");
 
-  const permission = event as unknown as {
+  const props = event.properties as {
     id: string;
-    type: string;
     sessionID: string;
     title: string;
+    type?: string;
     metadata?: Record<string, unknown>;
   };
 
-  const session = getSessionByOpenCodeId(permission.sessionID);
+  if (!props || !props.id || !props.sessionID) {
+    logger.warn({ event }, "Permission event missing required fields");
+    return;
+  }
+
+  const session = getSessionByOpenCodeId(props.sessionID);
   if (!session) {
     logger.warn(
-      { sessionID: permission.sessionID },
+      { sessionID: props.sessionID },
       "No user session found for permission event"
     );
     return;
@@ -54,12 +59,12 @@ async function handlePermissionEvent(event: SSEEvent): Promise<void> {
   await promptPermission(
     telegramId,
     chatId,
-    permission.sessionID,
-    permission.id,
-    permission.type,
-    permission.metadata
-      ? JSON.stringify(permission.metadata, null, 2)
-      : permission.title
+    props.sessionID,
+    props.id,
+    props.type || "unknown",
+    props.metadata
+      ? JSON.stringify(props.metadata, null, 2)
+      : props.title
   );
 }
 
@@ -75,5 +80,13 @@ async function handleWildcardEvent(event: SSEEvent): Promise<void> {
       { sessionID: sessionEvent.sessionID, type: sessionEvent.type },
       "Session status update"
     );
+    return;
   }
+
+  if (event.type === "permission.asked") {
+    logger.info({ event }, "Permission asked event in wildcard handler");
+    return;
+  }
+
+  logger.debug({ eventType: event.type }, "Unhandled SSE event");
 }
