@@ -2,6 +2,7 @@ import { Context, InlineKeyboard } from "grammy";
 import { isUserApproved, getAutoApprove } from "../../store/users.js";
 import {
   createPendingPermission,
+  getPendingPermissionByLocalId,
   updatePermissionStatus,
 } from "../../store/permissions.js";
 import { replyPermission } from "../../opencode/client.js";
@@ -17,24 +18,30 @@ export async function handlePermissionCallback(ctx: Context): Promise<void> {
     return;
   }
 
-  const [action, pendingId, sessionId, permissionId] = callbackQuery.data.split(":");
-  
+  const [action, shortId] = callbackQuery.data.split(":");
+
   if (action !== "approve" && action !== "deny" && action !== "always") return;
+
+  const pending = getPendingPermissionByLocalId(shortId);
+  if (!pending) {
+    await ctx.answerCallbackQuery("Permission request not found or expired");
+    return;
+  }
 
   try {
     await replyPermission(
-      sessionId,
-      permissionId,
+      pending.opencode_session_id,
+      pending.opencode_permission_id,
       action as "once" | "always" | "reject"
     );
 
     updatePermissionStatus(
-      pendingId,
+      pending.id,
       action === "deny" ? "denied" : "approved"
     );
 
-    const statusText = action === "deny" ? "❌ Denied" 
-      : action === "always" ? "✅ Always approved" 
+    const statusText = action === "deny" ? "❌ Denied"
+      : action === "always" ? "✅ Always approved"
       : "✅ Approved";
 
     await ctx.answerCallbackQuery(statusText);
@@ -50,7 +57,7 @@ export async function handlePermissionCallback(ctx: Context): Promise<void> {
     }
 
     logger.info(
-      { telegramId: userId, permissionId, action },
+      { telegramId: userId, permissionId: pending.opencode_permission_id, action },
       "Permission replied via inline keyboard"
     );
   } catch (err) {
@@ -90,11 +97,12 @@ export async function promptPermission(
     }
   }
 
+  const shortId = pending.id.slice(0, 8);
   const keyboard = new InlineKeyboard()
-    .text("✅ Approve", `approve:${pending.id}:${sessionId}:${permissionId}`)
-    .text("❌ Deny", `deny:${pending.id}:${sessionId}:${permissionId}`)
+    .text("✅ Approve", `approve:${shortId}`)
+    .text("❌ Deny", `deny:${shortId}`)
     .row()
-    .text("✅ Always Approve", `always:${pending.id}:${sessionId}:${permissionId}`);
+    .text("✅ Always Approve", `always:${shortId}`);
 
   const message = await bot?.api.sendMessage(
     chatId,
@@ -103,9 +111,9 @@ export async function promptPermission(
       (actionDetail
         ? `Detail: \`\`\`\n${actionDetail.slice(0, 500)}\n\`\`\`\n`
         : ""),
-    { 
+    {
       parse_mode: "Markdown",
-      reply_markup: keyboard 
+      reply_markup: keyboard
     }
   );
 

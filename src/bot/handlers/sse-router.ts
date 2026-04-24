@@ -26,9 +26,10 @@ async function handlePermissionEvent(event: SSEEvent): Promise<void> {
   const props = event.properties as {
     id: string;
     sessionID: string;
-    title: string;
-    type?: string;
+    permission: string;
+    patterns?: string[];
     metadata?: Record<string, unknown>;
+    title?: string;
   };
 
   if (!props || !props.id || !props.sessionID) {
@@ -56,15 +57,18 @@ async function handlePermissionEvent(event: SSEEvent): Promise<void> {
     return;
   }
 
+  const actionType = props.permission || "unknown";
+  const actionDetail = props.patterns
+    ? `Patterns: ${props.patterns.join(", ")}`
+    : props.title || undefined;
+
   await promptPermission(
     telegramId,
     chatId,
     props.sessionID,
     props.id,
-    props.type || "unknown",
-    props.metadata
-      ? JSON.stringify(props.metadata, null, 2)
-      : props.title
+    actionType,
+    actionDetail
   );
 }
 

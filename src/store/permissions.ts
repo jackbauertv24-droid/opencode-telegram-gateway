@@ -45,6 +45,17 @@ export function getPendingPermission(
     .get(opencodePermissionId) as PendingPermission | undefined;
 }
 
+export function getPendingPermissionByLocalId(
+  localId: string
+): PendingPermission | undefined {
+  const db = getDb();
+  return db
+    .prepare(
+      "SELECT * FROM pending_permissions WHERE id LIKE ? AND status = 'pending'"
+    )
+    .get(`${localId}%`) as PendingPermission | undefined;
+}
+
 export function getPendingPermissionsForUser(
   telegramId: string
 ): PendingPermission[] {
