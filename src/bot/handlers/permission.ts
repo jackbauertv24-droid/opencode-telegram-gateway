@@ -34,11 +34,17 @@ export async function handlePermissionCallback(ctx: Context): Promise<void> {
     return;
   }
 
+  const responseMap: Record<string, "once" | "always" | "reject"> = {
+    approve: "once",
+    deny: "reject",
+    always: "always",
+  };
+
   try {
     await replyPermission(
       pending.opencode_session_id,
       pending.opencode_permission_id,
-      action as "once" | "always" | "reject"
+      responseMap[action]
     );
 
     updatePermissionStatus(
