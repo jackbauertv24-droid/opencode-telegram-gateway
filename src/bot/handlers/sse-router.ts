@@ -2,6 +2,7 @@ import { sseSubscriber } from "../../opencode/sse.js";
 import { getSessionByOpenCodeId } from "../../store/sessions.js";
 import { isUserApproved } from "../../store/users.js";
 import { promptPermission } from "./permission.js";
+import { setupStreamingHandlers } from "./streaming.js";
 import { logger } from "../../logger.js";
 import type { SSEEvent } from "../../types.js";
 
@@ -16,6 +17,7 @@ export function getChatId(telegramId: string): number | undefined {
 }
 
 export function setupSSERouting(): void {
+  setupStreamingHandlers();
   sseSubscriber.on("permission.asked", handlePermissionEvent);
   sseSubscriber.on("*", handleWildcardEvent);
 }
@@ -79,16 +81,18 @@ async function handleWildcardEvent(event: SSEEvent): Promise<void> {
   }
 
   if (event.type === "session.status") {
-    const sessionEvent = event as unknown as { sessionID: string; type: string };
-    logger.debug(
-      { sessionID: sessionEvent.sessionID, type: sessionEvent.type },
-      "Session status update"
-    );
     return;
   }
 
   if (event.type === "permission.asked") {
-    logger.info({ event }, "Permission asked event in wildcard handler");
+    return;
+  }
+
+  if (
+    event.type === "message.part.delta" ||
+    event.type === "message.part.updated" ||
+    event.type === "session.idle"
+  ) {
     return;
   }
 
