@@ -102,6 +102,25 @@ export async function sendSimpleMessage(
   });
 }
 
+export async function sendAsyncMessage(
+  sessionId: string,
+  text: string
+): Promise<void> {
+  const url = `${OPENCODE_URL}/session/${sessionId}/prompt_async`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ parts: [{ type: "text", text }] }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenCode API error: ${response.status} ${text}`);
+  }
+}
+
 export async function getPermission(
   sessionId: string
 ): Promise<OpenCodePermission | undefined> {

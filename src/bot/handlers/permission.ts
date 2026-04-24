@@ -9,6 +9,8 @@ import { replyPermission } from "../../opencode/client.js";
 import { logger } from "../../logger.js";
 
 export async function handlePermissionCallback(ctx: Context): Promise<void> {
+  logger.info({ data: ctx.callbackQuery?.data }, "Permission callback received");
+
   const callbackQuery = ctx.callbackQuery;
   if (!callbackQuery?.data) return;
 
@@ -20,9 +22,13 @@ export async function handlePermissionCallback(ctx: Context): Promise<void> {
 
   const [action, shortId] = callbackQuery.data.split(":");
 
+  logger.info({ action, shortId, userId }, "Permission callback parsed");
+
   if (action !== "approve" && action !== "deny" && action !== "always") return;
 
   const pending = getPendingPermissionByLocalId(shortId);
+  logger.info({ pending: pending?.id, shortId }, "Permission lookup result");
+
   if (!pending) {
     await ctx.answerCallbackQuery("Permission request not found or expired");
     return;

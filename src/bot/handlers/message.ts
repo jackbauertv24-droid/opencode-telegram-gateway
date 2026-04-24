@@ -14,6 +14,50 @@ import { logger } from "../../logger.js";
 
 const processingUsers = new Set<string>();
 
+const RESPONSE_TIMEOUT = 5 * 60 * 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function waitForResponse(
+  sessionId: string,
+  since: number
+): Promise<string> {
+  const start = Date.now();
+
+  while (Date.now() - start < RESPONSE_TIMEOUT) {
+    try {
+      const messages = await opencode.listMessages(sessionId, 1);
+      const lastMsg = messages[0];
+
+      if (
+        lastMsg?.info?.role === "assistant" &&
+        lastMsg.info.time?.completed
+      ) {
+        const completedTime = new Date(lastMsg.info.time.completed).getTime();
+        if (completedTime > since) {
+          let fullContent = "";
+          if (lastMsg.parts && Array.isArray(lastMsg.parts)) {
+            for (const part of lastMsg.parts) {
+              if (part && typeof part === "object" && "text" in part) {
+                fullContent += (part as { text: string }).text;
+              }
+            }
+          }
+          return fullContent || "OpenCode did not return a response.";
+        }
+      }
+    } catch {
+      // ignore polling errors
+    }
+
+    await sleep(1000);
+  }
+
+  return "⏱️ Response timed out. The session may still be processing.";
+}
+
 export async function handleMessage(ctx: Context): Promise<void> {
   const userId = ctx.from?.id?.toString();
   const text = ctx.message?.text;
@@ -65,36 +109,16 @@ export async function handleMessage(ctx: Context): Promise<void> {
   processingUsers.add(userId);
 
   try {
-    const result = await opencode.sendSimpleMessage(
-      session.opencode_session_id,
-      text
-    );
+    const since = Date.now();
+
+    await opencode.sendAsyncMessage(session.opencode_session_id, text);
 
     touchSession(session.opencode_session_id);
 
-    let fullContent = "";
-
-    const messages = await opencode.listMessages(
+    const fullContent = await waitForResponse(
       session.opencode_session_id,
-      1
+      since
     );
-    const lastMessage = messages[0];
-
-    if (lastMessage?.parts && Array.isArray(lastMessage.parts)) {
-      for (const part of lastMessage.parts) {
-        if (part && typeof part === "object" && "text" in part) {
-          fullContent += (part as { text: string }).text;
-        }
-      }
-    }
-
-    if (!fullContent && result.info?.error) {
-      fullContent = `Error: ${result.info.error}`;
-    }
-
-    if (!fullContent) {
-      fullContent = "OpenCode did not return a response.";
-    }
 
     const chunks = chunkMessage(fullContent);
     cacheMessage(userId, session.opencode_session_id, fullContent, chunks.length);
