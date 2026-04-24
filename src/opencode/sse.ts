@@ -127,7 +127,8 @@ export class SSESubscriber {
     if (!data) return null;
 
     try {
-      return JSON.parse(data) as SSEEvent;
+      const parsed = JSON.parse(data) as SSEEvent;
+      return parsed;
     } catch {
       logger.warn({ line }, "Failed to parse SSE event");
       return null;

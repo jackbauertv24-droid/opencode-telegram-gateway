@@ -10,6 +10,7 @@ interface StreamingSession {
   telegramId: string;
   sessionId: string;
   parts: Map<string, { type: string; text: string }>;
+  userMessageId: string | null;
   lastEdit: number;
   completed: boolean;
 }
@@ -29,6 +30,7 @@ export function startStreaming(
     telegramId,
     sessionId,
     parts: new Map(),
+    userMessageId: null,
     lastEdit: 0,
     completed: false,
   };
@@ -64,6 +66,12 @@ async function handlePartDelta(event: unknown): Promise<void> {
   const session = streamingSessions.get(props.sessionID);
   if (!session || session.completed) return;
 
+  if (session.userMessageId === null) {
+    session.userMessageId = props.messageID;
+  }
+
+  if (props.messageID === session.userMessageId) return;
+
   const existing = session.parts.get(props.partID);
   if (existing) {
     existing.text += props.delta;
@@ -82,6 +90,7 @@ async function handlePartUpdated(event: unknown): Promise<void> {
         id: string;
         type: string;
         text?: string;
+        messageID: string;
       };
     };
   };
@@ -93,6 +102,13 @@ async function handlePartUpdated(event: unknown): Promise<void> {
   if (!session || session.completed) return;
 
   const part = props.part;
+
+  if (session.userMessageId === null) {
+    session.userMessageId = part.messageID;
+  }
+
+  if (part.messageID === session.userMessageId) return;
+
   if (part.type === "text" && part.text) {
     session.parts.set(part.id, { type: "text", text: part.text });
   } else if (part.type === "reasoning" && part.text) {

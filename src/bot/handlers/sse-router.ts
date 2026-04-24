@@ -80,11 +80,19 @@ async function handleWildcardEvent(event: SSEEvent): Promise<void> {
     return;
   }
 
+  if (event.type === "server.heartbeat") {
+    return;
+  }
+
   if (event.type === "session.status") {
     return;
   }
 
   if (event.type === "permission.asked") {
+    return;
+  }
+
+  if (event.type === "message.updated") {
     return;
   }
 
