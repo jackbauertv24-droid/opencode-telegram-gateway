@@ -20,10 +20,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function waitForResponse(
+async function waitForAndSendResponse(
   sessionId: string,
-  since: number
-): Promise<string> {
+  since: number,
+  chatId: number,
+  waitingMessageId: number,
+  telegramId: string
+): Promise<void> {
   const start = Date.now();
 
   while (Date.now() - start < RESPONSE_TIMEOUT) {
@@ -45,7 +48,31 @@ async function waitForResponse(
               }
             }
           }
-          return fullContent || "OpenCode did not return a response.";
+
+          if (!fullContent) {
+            fullContent = "OpenCode did not return a response.";
+          }
+
+          const chunks = chunkMessage(fullContent);
+          cacheMessage(telegramId, sessionId, fullContent, chunks.length);
+
+          try {
+            const { bot } = await import("../index.js");
+            await bot?.api.deleteMessage(chatId, waitingMessageId);
+            for (const chunk of chunks) {
+              await bot?.api.sendMessage(chatId, chunk, { parse_mode: "Markdown" });
+            }
+          } catch (err) {
+            logger.error({ err }, "Failed to send response to Telegram");
+          }
+
+          logger.info(
+            { telegramId, sessionId, chunks: chunks.length, length: fullContent.length },
+            "Message processed"
+          );
+
+          processingUsers.delete(telegramId);
+          return;
         }
       }
     } catch {
@@ -55,7 +82,16 @@ async function waitForResponse(
     await sleep(1000);
   }
 
-  return "⏱️ Response timed out. The session may still be processing.";
+  try {
+    const { bot } = await import("../index.js");
+    await bot?.api.editMessageText(
+      chatId,
+      waitingMessageId,
+      "⏱️ Response timed out. The session may still be processing."
+    );
+  } catch {}
+
+  processingUsers.delete(telegramId);
 }
 
 export async function handleMessage(ctx: Context): Promise<void> {
@@ -115,41 +151,20 @@ export async function handleMessage(ctx: Context): Promise<void> {
 
     touchSession(session.opencode_session_id);
 
-    const fullContent = await waitForResponse(
+    waitForAndSendResponse(
       session.opencode_session_id,
-      since
-    );
-
-    const chunks = chunkMessage(fullContent);
-    cacheMessage(userId, session.opencode_session_id, fullContent, chunks.length);
-
-    await ctx.api.deleteMessage(
-      waitingMsg.chat.id,
-      waitingMsg.message_id
-    );
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      await ctx.reply(chunk, { parse_mode: "Markdown" });
-    }
-
-    logger.info(
-      {
-        telegramId: userId,
-        sessionId: session.id,
-        chunks: chunks.length,
-        length: fullContent.length,
-      },
-      "Message processed"
+      since,
+      chatId,
+      waitingMsg.message_id,
+      userId
     );
   } catch (err) {
     logger.error({ err }, "Failed to send message");
     await ctx.api.editMessageText(
-      waitingMsg.chat.id,
+      chatId,
       waitingMsg.message_id,
       "❌ Failed to process message. Is OpenCode serve running?"
     );
-  } finally {
     processingUsers.delete(userId);
   }
 }
